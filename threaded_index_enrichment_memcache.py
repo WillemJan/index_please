@@ -69,6 +69,9 @@ class ir_thread(threading.Thread):
     def get_ir_data(self, identifier):
         url = GET_IR + RESOLVER_PREFIX + identifier + ':ocr'
         print(url)
+        wanted = 'http://resolver.kb.nl/resolve?urn=ddd:010543002:mpeg21:a0026:ocr'
+        if url.find(wanted) > -1:
+            print('************************')
 
         try:
             ir = json.loads(urllib.urlopen(url).read())
@@ -78,12 +81,6 @@ class ir_thread(threading.Thread):
             self.ir_que.put(identifier)
             return False
 
-        if not ir.get('links'):
-            return False
-
-        places, latlong = self.parse_ir_data_places(ir.get('links'))
-        identifiers = self.parse_ir_data_identifiers(ir.get('links'), latlong)
-
         load_string = u'[{"uniqueKey":"' + identifier + u'",'
         error = ''
         header = ir.get('header')
@@ -91,16 +88,25 @@ class ir_thread(threading.Thread):
             print(header.get('status'))
             if not header.get('status') == 'OK':
                 error = header.get('message')
-
         load_string += 'dacresult:{"set":"%s"},' % error
 
-        if places or identifiers:
-            load_string += places
-            if identifiers and not load_string.endswith(','):
-                load_string += ","
-            load_string += identifiers
+
+        if ir.get('links'):
+            places, latlong = self.parse_ir_data_places(ir.get('links'))
+            identifiers = self.parse_ir_data_identifiers(ir.get('links'), latlong)
+
+            if places or identifiers:
+                load_string += places
+                if identifiers and not load_string.endswith(','):
+                    load_string += ","
+                load_string += identifiers
+
+        if load_string.endswith(','):
+            load_string = load_string[:-1]
+
         load_string += u'}]'
-        #print(identifier, load_string)
+        print(identifier, load_string)
+
         return load_string
 
 
